@@ -1,20 +1,24 @@
 import os, re, md5, urllib, urllib2, json
 import time as time_module
 import calendar as calendar_module
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from icalendar import Calendar, UTC
+import tzinfo_examples as tzinfo
 
-# Google Calendar - Toodoedo Sync 2.0
+# Google Calendar - Toodledo Sync 2.0
 # Uses icalendar module, Toodledo API 2.0
 
 # Configuration
 
-calSource       = "https://www.google.com/calendar/ical/iasof4fo8172hp18i4rgbor658%40group.calendar.google.com/private-c0a3344b93bbc6bc34ae5c9848ffe0d7/basic.ics";
+lookahead        = 14
+operationalTZ    = tzinfo.USTimeZone(-8, "Pacific",  "PST", "PDT")
+
+calSource        = "https://www.google.com/calendar/ical/iasof4fo8172hp18i4rgbor658%40group.calendar.google.com/private-c0a3344b93bbc6bc34ae5c9848ffe0d7/basic.ics";
 
 toodledoApiToken = "api4e66fbb4df494";
-toodledoId      = "td4c78ccd022ad9";
+toodledoId       = "td4c78ccd022ad9";
 toodledoFolderId = "752093";
-toodledoPass    = "qwerty";
+toodledoPass     = "qwerty";
 
 class ToodledoSync:
     API_ENDPOINT = "http://api.toodledo.com/2/"
@@ -92,11 +96,12 @@ cal = Calendar.from_string(calText)
 items = {}
 for component in cal.walk("VEVENT"):
     now = datetime.now(tz = UTC)
-    nextWeek = now.replace(day = now.day + 7)
-    date = datetime.combine(component.decoded("dtstart"), time(tzinfo = UTC))
+    nextWeek = now + timedelta(lookahead)
+    date = datetime.combine(component.decoded("dtstart"), time(tzinfo = tzinfo.UTC()))
+    date = date.astimezone(operationalTZ)
     if (now < date < nextWeek):
         items[component.decoded("summary")] = date
-ghettoLog("Google Calendar: {} items in next 7 days".format(len(items)))
+ghettoLog("Google Calendar: {} items in next {} days".format(len(items), lookahead))
 
 toodle = ToodledoSync(toodledoApiToken, toodledoId, toodledoPass, toodledoFolderId);
 toodle.getTokenAndKey();

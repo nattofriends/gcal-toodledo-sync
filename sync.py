@@ -1,7 +1,7 @@
 import os, re, md5, urllib, urllib2, json
 import time as time_module
 import calendar as calendar_module
-from datetime import datetime, time, timedelta
+from datetime import datetime, date, time, timedelta
 from icalendar import Calendar, UTC
 import tzinfo_examples as tzinfo
 
@@ -60,7 +60,7 @@ class ToodledoSync:
         ghettoLog("Starting sync")
         response = self.apply("tasks/get.php", 
             key = self.key, 
-            comp = 0,
+            comp = -1,
             fields = "duedate")
         response = json.loads(response)[1:]
         tdItems = {task["title"]: datetime.fromtimestamp(task["duedate"], UTC) for task in response}
@@ -97,10 +97,14 @@ items = {}
 for component in cal.walk("VEVENT"):
     now = datetime.now(tz = UTC)
     nextWeek = now + timedelta(lookahead)
-    date = datetime.combine(component.decoded("dtstart"), time(tzinfo = tzinfo.UTC()))
-    date = date.astimezone(operationalTZ)
-    if (now < date < nextWeek):
-        items[component.decoded("summary")] = date
+    dt = component.decoded("dtstart")
+    if isinstance(dt, datetime):
+        dt = dt.replace(tzinfo = tzinfo.UTC())
+    elif isinstance(dt, date):
+        dt = datetime.combine(dt, time(tzinfo = tzinfo.UTC()))
+    dt = dt.astimezone(operationalTZ)
+    if (now < dt < nextWeek):
+        items[component.decoded("summary")] = dt
 ghettoLog("Google Calendar: {} items in next {} days".format(len(items), lookahead))
 
 toodle = ToodledoSync(toodledoApiToken, toodledoId, toodledoPass, toodledoFolderId);

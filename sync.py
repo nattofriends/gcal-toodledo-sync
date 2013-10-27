@@ -1,9 +1,12 @@
+#!/opt/local/bin/python
 import os, re, md5, urllib, urllib2, json
 import time as time_module
 import calendar as calendar_module
 from datetime import datetime, date, time, timedelta
 from icalendar import Calendar, UTC
 import tzinfo_examples as tzinfo
+
+from config import calSource, toodledoApiToken, toodledoId, toodledoFolderId, toodledoPass
 
 # Google Calendar - Toodledo Sync 2.0
 # Uses icalendar module, Toodledo API 2.0
@@ -13,12 +16,7 @@ import tzinfo_examples as tzinfo
 lookahead        = 14
 operationalTZ    = tzinfo.USTimeZone(-8, "Pacific",  "PST", "PDT")
 
-calSource        = "https://www.google.com/calendar/ical/iasof4fo8172hp18i4rgbor658%40group.calendar.google.com/private-c0a3344b93bbc6bc34ae5c9848ffe0d7/basic.ics";
 
-toodledoApiToken = "api4e66fbb4df494";
-toodledoId       = "td4c78ccd022ad9";
-toodledoFolderId = "752093";
-toodledoPass     = "qwerty";
 
 class ToodledoSync:
     API_ENDPOINT = "http://api.toodledo.com/2/"

@@ -1,10 +1,11 @@
 #!/opt/local/bin/python
-import os, re, md5, urllib, urllib2, json
+import os, re, md5, urllib, urllib2, json, sys
 import time as time_module
 import calendar as calendar_module
 from datetime import datetime, date, time, timedelta
-from icalendar import Calendar, UTC
-import tzinfo_examples as tzinfo
+
+from icalendar import Calendar
+import pytz
 
 from config import calSource, toodledoApiToken, toodledoId, toodledoFolderId, toodledoPass
 
@@ -14,7 +15,8 @@ from config import calSource, toodledoApiToken, toodledoId, toodledoFolderId, to
 # Configuration
 
 lookahead        = 14
-operationalTZ    = tzinfo.USTimeZone(-8, "Pacific",  "PST", "PDT")
+# operationalTZ    = tzinfo.USTimeZone(-8, "Pacific",  "PST", "PDT")
+operationalTZ = pytz.timezone('US/Pacific')
 
 
 
@@ -61,7 +63,7 @@ class ToodledoSync:
             comp = -1,
             fields = "duedate")
         response = json.loads(response)[1:]
-        tdItems = {task["title"]: datetime.fromtimestamp(task["duedate"], UTC) for task in response}
+        tdItems = {task["title"]: datetime.fromtimestamp(task["duedate"], pytz.utc) for task in response}
         ghettoLog("Toodledo: {} items in list".format(len(tdItems)))
         
         notInToodledo = filter(lambda key: key not in tdItems, gcalItems.keys())
@@ -90,18 +92,18 @@ def ghettoLog(msg):
 ghettoLog("Starting Google Calendar - Toodledo sync")
 
 calText = urllib2.urlopen(calSource).read()
-cal = Calendar.from_string(calText)
+cal = Calendar.from_ical(calText)
 items = {}
 for component in cal.walk("VEVENT"):
-    now = datetime.now(tz = UTC)
+    now = datetime.now(tz=pytz.utc)
     nextWeek = now + timedelta(lookahead)
     dt = component.decoded("dtstart")
     if isinstance(dt, datetime):
-        dt = dt.replace(tzinfo = tzinfo.UTC())
+        dt = dt.replace(tzinfo=operationalTZ)
     elif isinstance(dt, date):
-        dt = datetime.combine(dt, time(tzinfo = tzinfo.UTC()))
-    dt = dt.astimezone(operationalTZ)
-    if (now < dt < nextWeek):
+        dt = datetime.combine(dt, time(tzinfo=pytz.utc))
+    dt = dt.astimezone(pytz.utc)
+    if (now < dt.astimezone(operationalTZ) < nextWeek):
         items[component.decoded("summary")] = dt
 ghettoLog("Google Calendar: {} items in next {} days".format(len(items), lookahead))
 

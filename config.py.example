@@ -1,0 +1,10 @@
+calSource        = "https://a.ics.file.com";
+
+# If you created an API access app in Toodledo's developer interface.
+toodledoApiToken = "";
+# Your account's id
+toodledoId       = "";
+# Find this somewhere in your Toodledo account
+toodledoFolderId = "";
+# Yes, your Toodledo account password is required
+toodledoPass     = "";

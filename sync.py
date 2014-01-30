@@ -1,112 +1,38 @@
-#!/opt/local/bin/python
-import os, md5, urllib, urllib2, json
-import time as time_module
-import calendar as calendar_module
+#!/usr/bin/env python
 from datetime import datetime, date, time, timedelta
 
 from icalendar import Calendar
 import pytz
+import requests
 
-from config import calSource, toodledoApiToken, toodledoId, toodledoFolderId, toodledoPass
+import config
+from providers import ToodledoSync, WunderlistSync
+from util import log
 
-# Google Calendar - Toodledo Sync 2.0
-# Uses icalendar module, Toodledo API 2.0
+SYNC_PROVIDERS = [ToodledoSync, WunderlistSync]
 
-# Configuration
+log("shinku: starting")
 
-lookahead        = 14
-# operationalTZ    = tzinfo.USTimeZone(-8, "Pacific",  "PST", "PDT")
-operationalTZ = pytz.timezone('US/Pacific')
-
-
-
-class ToodledoSync:
-    API_ENDPOINT = "http://api.toodledo.com/2/"
-    APPID = "WarosuGcalSync"
-
-    def __init__(self, _toodledo_api_token, _toodledo_id, _toodledo_pass, _toodledo_folder_id):
-        self.api_token = _toodledo_api_token;
-        self.id = _toodledo_id;
-        self.password = _toodledo_pass;
-        self.folderId = _toodledo_folder_id;
-
-    def apply(self, supplementary_url, **params):
-        return urllib2.urlopen(ToodledoSync.API_ENDPOINT + supplementary_url + "?" + urllib.urlencode(params)).read()
-
-    def getTokenAndKey(self):
-        try:
-            lastModification = os.path.getmtime("cache");
-        except:
-            lastModification = 0;
-        if (os.path.exists("cache") and time_module.time() - lastModification < 14400):
-            ghettoLog("Found cached token and key")
-            with open("cache") as cache:
-                self.session_token, self.key = cache.read().split(":")
-        else:
-            ghettoLog("Getting new token and key")
-            response = self.apply("account/token.php",
-                userid = self.id,
-                appid = ToodledoSync.APPID,
-                sig = md5.new(self.id + self.api_token).hexdigest())
-            response = json.loads(response)
-            if not "token" in response:
-                raise Exception("Invalid token, got response: " + str(response))
-            self.session_token = response["token"]
-            self.key = md5.new(md5.new(self.password).hexdigest() + self.api_token + self.session_token).hexdigest()
-            with open("cache", 'w') as cache:
-                cache.write("{}:{}".format(self.session_token, self.key))
-
-    def sync(self, gcalItems):
-        ghettoLog("Starting sync")
-        response = self.apply("tasks/get.php",
-            key = self.key,
-            comp = -1,
-            fields = "duedate")
-        response = json.loads(response)[1:]
-        tdItems = {task["title"]: datetime.fromtimestamp(task["duedate"], pytz.utc) for task in response}
-        ghettoLog("Toodledo: {} items in list".format(len(tdItems)))
-
-        notInToodledo = filter(lambda key: key not in tdItems, gcalItems.keys())
-        ghettoLog("{} new items to add".format(len(notInToodledo)))
-
-        payload = [
-            {"title": item,
-             "duedate": calendar_module.timegm(gcalItems[item].timetuple()),
-             "folder": self.folderId
-            }
-            for item in notInToodledo]
-        if len(payload) > 0:
-            map(lambda item: ghettoLog("\tAdding '{}'".format(item["title"])), payload)
-            payload = json.dumps(payload)
-            response = self.apply("tasks/add.php",
-                key = self.key,
-                tasks = payload);
-            ghettoLog("Synchronization complete.")
-        else:
-            ghettoLog("Nothing synchronized.")
-
-
-def ghettoLog(msg):
-    print "{}  {}".format(time_module.asctime(), msg)
-
-ghettoLog("Starting Google Calendar - Toodledo sync")
-
-calText = urllib2.urlopen(calSource).read()
+calText = requests.get(config.calendar['source']).text
 cal = Calendar.from_ical(calText)
 items = {}
 for component in cal.walk("VEVENT"):
     now = datetime.now(tz=pytz.utc)
-    nextWeek = now + timedelta(lookahead)
-    dt = component.decoded("dtstart")
-    if isinstance(dt, datetime):
-        dt = dt.replace(tzinfo=operationalTZ)
-    elif isinstance(dt, date):
-        dt = datetime.combine(dt, time(tzinfo=pytz.utc))
-    dt = dt.astimezone(pytz.utc)
-    if (now < dt.astimezone(operationalTZ) < nextWeek):
-        items[unicode(component.decoded("summary"), encoding='utf-8')] = dt
-ghettoLog("Google Calendar: {} items in next {} days".format(len(items), lookahead))
+    until = now + timedelta(config.lookahead)
 
-toodle = ToodledoSync(toodledoApiToken, toodledoId, toodledoPass, toodledoFolderId);
-toodle.getTokenAndKey();
-toodle.sync(items);
+    dt = component.decoded("dtstart")
+
+    # As it so turns out, datetime is a subclass of date, meaning our time for
+    # events had always been off because the time info had been blown away
+    # every single time. Go figure.
+    if type(dt) is date:
+        dt = datetime.combine(dt, time(tzinfo=pytz.utc))
+
+    if (now < dt < until):
+        items[unicode(component.decoded("summary"), encoding='utf-8')] = dt
+
+log("Google Calendar: {} items in next {} days".format(len(items), config.lookahead))
+
+for provider in SYNC_PROVIDERS:
+    syncer = provider()
+    syncer.sync(items)

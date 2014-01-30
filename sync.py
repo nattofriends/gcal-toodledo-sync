@@ -13,8 +13,8 @@ SYNC_PROVIDERS = [ToodledoSync, WunderlistSync]
 
 log("shinku: starting")
 
-calText = requests.get(config.calendar['source']).text
-cal = Calendar.from_ical(calText)
+raw_ical = requests.get(config.calendar['source']).text
+cal = Calendar.from_ical(raw_ical)
 items = {}
 for component in cal.walk("VEVENT"):
     now = datetime.now(tz=pytz.utc)

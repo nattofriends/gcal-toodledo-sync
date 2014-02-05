@@ -115,10 +115,11 @@ class WunderlistSync(SyncBase):
 
         if any(missing):
             for task in missing:
-                self.log("\t Adding '{}'".format(task))
+                local_time = gcal_items[task].astimezone(pytz.timezone(config.working_timezone))
+                self.log("\t Adding '{}' ({})".format(task, local_time.isoformat()))
                 self.w.add_task(task,
                     list=config.wunderlist['list'],
-                    due_date=gcal_items[task].isoformat(),
+                    due_date=local_time.isoformat(),
                     starred=False
                 )
             self.log("Synchronization complete.")

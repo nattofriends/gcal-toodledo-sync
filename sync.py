@@ -15,11 +15,11 @@ log("shinku: starting")
 
 raw_ical = requests.get(config.calendar['source']).text
 cal = Calendar.from_ical(raw_ical)
+now = datetime.now(tz=pytz.utc)
+until = now + timedelta(config.lookahead)
 items = {}
-for component in cal.walk("VEVENT"):
-    now = datetime.now(tz=pytz.utc)
-    until = now + timedelta(config.lookahead)
 
+for component in cal.walk("VEVENT"):
     dt = component.decoded("dtstart")
 
     # As it so turns out, datetime is a subclass of date, meaning our time for

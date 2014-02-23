@@ -1,10 +1,22 @@
-calSource        = "https://a.ics.file.com";
+# Configuration for shinku
 
-# If you created an API access app in Toodledo's developer interface.
-toodledoApiToken = "";
-# Your account's id
-toodledoId       = "";
-# Find this somewhere in your Toodledo account
-toodledoFolderId = "";
-# Yes, your Toodledo account password is required
-toodledoPass     = "";
+# Days to look ahead and add events into todo.
+lookahead = 14
+working_timezone = 'America/Los_Angeles'
+
+calendar = {
+    "source": "https://a.ics.file.com",
+}
+
+toodledo = {
+    "api_token": "",
+    "id": "",
+    "folder_id": "",
+    "password": ""
+}
+
+wunderlist = {
+    "username": "",
+    "password": "",
+    "list": "" # List to add events to
+}
